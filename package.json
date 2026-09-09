@@ -1,0 +1,43 @@
+{
+  "name": "classscore",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:worker\" \"npm:dev:ui\"",
+    "dev:worker": "wrangler dev",
+    "dev:ui": "vite",
+    "build": "vite build",
+    "deploy": "npm run build && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply classscore --local",
+    "db:migrate:remote": "wrangler d1 migrations apply classscore --remote",
+    "db:reset-auth": "wrangler d1 execute classscore --command \"DELETE FROM settings WHERE key IN ('auth_pw_hash','totp_secret','totp_confirmed','auth_fails','auth_locked_until','auth_last_step')\"",
+    "db:reset-auth:remote": "wrangler d1 execute classscore --remote --command \"DELETE FROM settings WHERE key IN ('auth_pw_hash','totp_secret','totp_confirmed','auth_fails','auth_locked_until','auth_last_step')\"",
+    "typecheck": "tsc --noEmit",
+    "preview": "npm run build && wrangler dev"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260908.1",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/node": "^24.5.2",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.1",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5",
+    "wrangler": "^4.38.0"
+  },
+  "dependencies": {
+    "@types/qrcode": "^1.5.6",
+    "framer-motion": "^11.18.2",
+    "hono": "^4.9.7",
+    "lucide-react": "^0.544.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.18.3"
+  }
+}
