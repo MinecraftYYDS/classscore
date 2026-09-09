@@ -14,7 +14,7 @@ binding = "DB"
 database_name = "classscore"
 # 部署前请替换为你自己的 database_id(CI 会自动创建并写入):
 #   npx wrangler d1 create classscore
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "229823eb-4244-4aa3-937f-26d0c88258d5"
 
 # 注意:生产环境的 JWT_SECRET 请使用 `npx wrangler secret put JWT_SECRET` 设置,
 # 不要写在此处(CI 首次部署会自动生成)。本地开发放在 .dev.vars。
