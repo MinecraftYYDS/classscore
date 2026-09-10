@@ -15,8 +15,6 @@ interface DrawResult {
   studentName: string;
 }
 
-const PRIZE_EDIT_CODE = "114514";
-
 export default function LotteryTab({ students, onDone }: { students: Student[]; onDone: () => Promise<void> }) {
   const settings = useSettings();
   const [prizes, setPrizes] = useState<Prize[]>([]);
@@ -126,13 +124,18 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
     }
   };
 
-  const onSearchChange = (v: string) => {
-    if (v.includes(PRIZE_EDIT_CODE)) {
+  // 在搜索框输入登录密码并回车,解锁奖池编辑(默认隐藏)
+  const tryUnlock = async () => {
+    const pw = query.trim();
+    if (!pw) return;
+    try {
+      await api.post("/api/auth/verify-password", { password: pw });
       setQuery("");
       setPrizeOpen(true);
-      return;
+      toast.success("已解锁奖池设置");
+    } catch {
+      /* 不是密码,按普通搜索处理 */
     }
-    setQuery(v);
   };
 
   return (
@@ -154,7 +157,13 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
                 className="cs-input pl-8"
                 placeholder="搜索姓名/学号"
                 value={query}
-                onChange={(e) => onSearchChange(e.target.value)}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void tryUnlock();
+                  }
+                }}
               />
             </div>
             <div className="grid max-h-[60vh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
@@ -230,7 +239,7 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
         </div>
       </div>
 
-      {/* 奖池编辑(默认隐藏,在搜索框输入暗号后弹出) */}
+      {/* 奖池编辑(默认隐藏,在搜索框输入登录密码并回车后弹出) */}
       <AnimatePresence>
         {prizeOpen && (
           <motion.div

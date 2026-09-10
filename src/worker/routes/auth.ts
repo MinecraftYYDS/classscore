@@ -186,6 +186,15 @@ authRoutes.post("/totp/rebind/confirm", requireAuth, async (c) => {
   return c.json({ ok: true });
 });
 
+// 校验当前登录密码(用于隐藏功能的二次确认,如奖池编辑解锁)
+authRoutes.post("/verify-password", requireAuth, async (c) => {
+  const { password } = await c.req.json<{ password?: string }>();
+  const st = await loadAuthState(c.env.DB);
+  if (!st.pwHash) return c.json({ error: "状态异常" }, 400);
+  if (!(await verifyPassword(password ?? "", st.pwHash))) return c.json({ error: "密码错误" }, 401);
+  return c.json({ ok: true });
+});
+
 // 2FA 登录开关(只有在已绑定过 2FA 后才能切换)
 authRoutes.get("/2fa", requireAuth, async (c) => {
   const st = await loadAuthState(c.env.DB);
