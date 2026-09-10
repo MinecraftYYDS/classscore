@@ -33,6 +33,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [mobileStep, setMobileStep] = useState<"pick" | "action">("pick");
+  const [multi, setMulti] = useState(false);
 
   const presets = mode === "add" ? settings.preset_add : settings.preset_deduct;
   const quick = mode === "add" ? QUICK_ADD : QUICK_DEDUCT;
@@ -56,11 +57,24 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
   };
 
   const selectAllVisible = () => setSelected(new Set(filtered.map((s) => s.id)));
-  const clear = () => setSelected(new Set());
+  const clear = () => {
+    setSelected(new Set());
+    setMulti(false);
+  };
 
   const pickOne = (id: number) => {
     setSelected(new Set([id]));
     setMobileStep("action");
+  };
+
+  // 点方框进入多选;之后点名字也继续多选,只有底部「下一步」才进入操作页
+  const tapBox = (id: number) => {
+    setMulti(true);
+    toggle(id);
+  };
+  const tapName = (id: number) => {
+    if (multi) toggle(id);
+    else pickOne(id);
   };
 
   const applyPreset = (label: string, d: number) => {
@@ -86,7 +100,10 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
       setDelta(null);
       setReason("");
       await onDone();
-      if (!isDesktop) setMobileStep("pick");
+      if (!isDesktop) {
+        setMobileStep("pick");
+        setMulti(false);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "操作失败");
     } finally {
@@ -279,7 +296,10 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
     return (
       <div className="space-y-3">
         <button
-          onClick={() => setMobileStep("pick")}
+          onClick={() => {
+            setMobileStep("pick");
+            setMulti(false);
+          }}
           className="cs-btn border border-slate-700 text-slate-300"
         >
           <ArrowLeft className="h-4 w-4" /> 返回选择({selected.size} 人)
@@ -296,6 +316,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
         <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
           <span>
             已选 <span className="font-bold text-indigo-300">{selected.size}</span> / {filtered.length} 人
+            {multi && <span className="ml-2 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] text-indigo-300">多选模式</span>}
           </span>
           <span className="flex gap-3">
             <button onClick={selectAllVisible} className="text-slate-400">
@@ -327,7 +348,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
               >
                 <button
                   type="button"
-                  onClick={() => toggle(s.id)}
+                  onClick={() => tapBox(s.id)}
                   aria-label={on ? "取消选择" : "选择"}
                   className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                     on ? "border-indigo-400 bg-indigo-500" : "border-slate-600"
@@ -337,7 +358,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
                 </button>
                 <button
                   type="button"
-                  onClick={() => pickOne(s.id)}
+                  onClick={() => tapName(s.id)}
                   className={`min-w-0 flex-1 truncate text-left text-xs ${on ? "text-indigo-200" : "text-slate-300"}`}
                 >
                   {s.name}
@@ -347,7 +368,11 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
           })}
           {filtered.length === 0 && <p className="col-span-full py-8 text-center text-sm text-slate-500">没有匹配的学生</p>}
         </div>
-        <p className="mt-2 text-center text-[11px] text-slate-600">点名字前的方框可多选,完成后点底部「下一步」;直接点名字则只对该学生操作</p>
+        <p className="mt-2 text-center text-[11px] text-slate-600">
+          {multi
+            ? "多选模式:点方框或名字都会加入/移出选择,完成后点底部「下一步」"
+            : "点方框开始多选;直接点名字则只对该学生操作"}
+        </p>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-800 bg-slate-950/90 p-3 backdrop-blur">
