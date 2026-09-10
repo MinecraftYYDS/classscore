@@ -4,6 +4,7 @@ import { Trophy, ArrowLeft } from "lucide-react";
 import type { BoardData } from "@shared/types";
 import { AnimatedNumber, scoreColor } from "../components/ScoreBits";
 import StudentDetailModal from "../components/StudentDetailModal";
+import ThemeToggle from "../components/ThemeToggle";
 
 const NAME_COLLATOR = new Intl.Collator("zh-Hans-CN", { sensitivity: "base" });
 
@@ -52,6 +53,7 @@ export default function BigScreen() {
         <span className="ml-auto shrink-0 text-xs text-slate-500">
           {updatedAt ? `更新于 ${updatedAt.toLocaleTimeString("zh-CN", { hour12: false })} · 每 15 秒刷新` : "加载中…"}
         </span>
+        <ThemeToggle />
         <Link
           to="/"
           className="cs-btn shrink-0 border border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-300"

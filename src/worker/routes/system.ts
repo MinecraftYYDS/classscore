@@ -294,7 +294,7 @@ systemRoutes.post("/reset-all", async (c) => {
     db.prepare("DELETE FROM prizes"),
     db.prepare("DELETE FROM operations"),
     db.prepare(
-      "DELETE FROM settings WHERE key NOT IN ('auth_pw_hash','totp_secret','totp_confirmed','auth_last_step','session_secret')"
+      "DELETE FROM settings WHERE key NOT IN ('auth_pw_hash','totp_secret','totp_confirmed','totp_login_enabled','auth_last_step','session_secret')"
     ),
   ]);
   await seedDefaults(db);

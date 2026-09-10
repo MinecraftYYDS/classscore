@@ -218,10 +218,18 @@ export default function SettingsTab({ onDone }: { onDone: () => Promise<void> })
   const [newPw, setNewPw] = useState("");
   const [rebindUri, setRebindUri] = useState("");
   const [rebindCode, setRebindCode] = useState("");
+  const [twoFa, setTwoFa] = useState<{ configured: boolean; enabled: boolean } | null>(null);
 
   useEffect(() => {
     setForm(JSON.parse(JSON.stringify(settings)));
   }, [settings]);
+
+  useEffect(() => {
+    api
+      .get<{ configured: boolean; enabled: boolean }>("/api/auth/2fa")
+      .then(setTwoFa)
+      .catch(() => undefined);
+  }, []);
 
   if (!form) return <p className="py-12 text-center text-slate-500">加载中…</p>;
 
@@ -247,6 +255,20 @@ export default function SettingsTab({ onDone }: { onDone: () => Promise<void> })
       toast.success("测试消息发送成功");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "发送失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggle2fa = async () => {
+    if (!twoFa?.configured) return;
+    setBusy(true);
+    try {
+      const r = await api.post<{ enabled: boolean }>("/api/auth/2fa", { enabled: !twoFa.enabled });
+      setTwoFa({ configured: true, enabled: r.enabled });
+      toast.success(r.enabled ? "已开启登录动态码" : "已关闭登录动态码");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "操作失败");
     } finally {
       setBusy(false);
     }
@@ -391,6 +413,28 @@ export default function SettingsTab({ onDone }: { onDone: () => Promise<void> })
                 </div>
               </div>
             )}
+            <div className="mt-4! flex items-center justify-between gap-3 rounded-lg border border-slate-800 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm text-slate-300">登录时需要动态验证码</p>
+                <p className="text-[11px] text-slate-500">
+                  {twoFa?.configured ? "关闭后仅用密码登录" : "请先绑定验证器后才能设置"}
+                </p>
+              </div>
+              <button
+                onClick={toggle2fa}
+                disabled={busy || !twoFa?.configured}
+                title={twoFa?.configured ? "点击切换" : "请先绑定验证器"}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${
+                  twoFa?.enabled ? "bg-emerald-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+                    twoFa?.enabled ? "left-[22px]" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
       </Section>

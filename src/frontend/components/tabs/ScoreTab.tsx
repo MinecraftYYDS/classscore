@@ -76,7 +76,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
   return (
     <div className="space-y-4">
       {/* 模式切换 */}
-      <div className="cs-card relative grid grid-cols-2 p-1">
+      <div className="cs-card relative mx-auto grid w-full max-w-md grid-cols-2 p-1 lg:max-w-lg">
         {(["add", "deduct"] as const).map((m) => (
           <button
             key={m}
@@ -85,7 +85,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
               setDelta(null);
               setReason("");
             }}
-            className={`relative z-10 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition ${
+            className={`relative z-10 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition lg:py-3.5 lg:text-base ${
               mode === m
                 ? m === "add"
                   ? "text-emerald-300"
@@ -102,67 +102,83 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
                 transition={{ type: "spring", stiffness: 400, damping: 32 }}
               />
             )}
-            {m === "add" ? <Plus className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+            {m === "add" ? <Plus className="h-4 w-4 lg:h-5 lg:w-5" /> : <Minus className="h-4 w-4 lg:h-5 lg:w-5" />}
             {m === "add" ? "加分" : "扣分"}
           </button>
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* 手机端:单列堆叠;电脑端:左学生列表 + 右操作区 */}
+      <div className="grid gap-4 lg:grid-cols-12 lg:items-start lg:gap-5">
         {/* 学生多选 */}
-        <div className="cs-card p-4">
+        <div className="cs-card p-4 lg:col-span-7 lg:p-5 xl:col-span-8">
           <div className="mb-3 flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-              <input className="cs-input pl-8" placeholder="搜索姓名/学号" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input
+                className="cs-input h-11 pl-9 text-base lg:h-12"
+                placeholder="搜索姓名/学号"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
             </div>
-            <button onClick={selectAllVisible} className="cs-btn border border-slate-700 px-3 text-slate-300">全选</button>
-            <button onClick={clear} className="cs-btn border border-slate-700 px-3 text-slate-400">清空</button>
+            <button onClick={selectAllVisible} className="cs-btn h-11 border border-slate-700 px-3 text-slate-300 lg:h-12 lg:px-4">
+              全选
+            </button>
+            <button onClick={clear} className="cs-btn h-11 border border-slate-700 px-3 text-slate-400 lg:h-12 lg:px-4">
+              清空
+            </button>
           </div>
-          <div className="mb-2 text-xs text-slate-500">
-            已选 <span className="font-bold text-indigo-300">{selected.size}</span> 人
+          <div className="mb-2 flex items-center justify-between text-xs text-slate-500 lg:text-sm">
+            <span>
+              已选 <span className="font-bold text-indigo-300">{selected.size}</span> 人
+            </span>
+            <span>共 {filtered.length} 人</span>
           </div>
-          <div className="grid max-h-72 grid-cols-2 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-3">
+          <div className="grid max-h-[48vh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3 lg:max-h-[62vh] lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {filtered.map((s) => {
               const on = selected.has(s.id);
               return (
                 <button
                   key={s.id}
                   onClick={() => toggle(s.id)}
-                  className={`flex items-center gap-1.5 rounded-lg border px-2 py-2 text-left text-sm transition active:scale-95 ${
+                  className={`flex items-center gap-2 rounded-lg border px-2.5 py-2.5 text-left text-sm transition active:scale-95 lg:py-3 lg:text-base ${
                     on
                       ? "border-indigo-500/60 bg-indigo-500/15 text-indigo-200"
                       : "border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-600"
                   }`}
                 >
                   <span
-                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border lg:h-5 lg:w-5 ${
                       on ? "border-indigo-400 bg-indigo-500" : "border-slate-600"
                     }`}
                   >
-                    {on && <Check className="h-3 w-3 text-white" />}
+                    {on && <Check className="h-3 w-3 text-white lg:h-3.5 lg:w-3.5" />}
                   </span>
                   <span className="truncate">{s.name}</span>
-                  <span className={`ml-auto shrink-0 text-xs ${isDeduct && s.score <= 0 ? "text-rose-400" : "text-slate-500"}`}>{s.score}</span>
+                  <span className={`ml-auto shrink-0 text-xs lg:text-sm ${isDeduct && s.score <= 0 ? "text-rose-400" : "text-slate-500"}`}>
+                    {s.score}
+                  </span>
                 </button>
               );
             })}
+            {filtered.length === 0 && <p className="col-span-full py-8 text-center text-sm text-slate-500">没有匹配的学生</p>}
           </div>
         </div>
 
         {/* 理由 + 分值 */}
-        <div className="cs-card space-y-4 p-4">
+        <div className="cs-card space-y-4 p-4 lg:sticky lg:top-24 lg:col-span-5 lg:self-start lg:p-5 xl:col-span-4">
           <div>
-            <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-300">
+            <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-300 lg:text-base">
               <Sparkles className="h-4 w-4 text-indigo-400" /> 快捷理由
             </h3>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 lg:gap-2">
               {presets.length === 0 && <span className="text-xs text-slate-600">(在系统设置中配置快捷理由)</span>}
               {presets.map((p) => (
                 <button
                   key={p.label}
                   onClick={() => applyPreset(p.label, p.delta)}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition active:scale-95 ${
+                  className={`rounded-full border px-3 py-1.5 text-xs transition active:scale-95 lg:px-4 lg:py-2 lg:text-sm ${
                     reason === p.label
                       ? "border-indigo-400 bg-indigo-500/20 text-indigo-200"
                       : isDeduct
@@ -177,13 +193,13 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-slate-300">快捷分值</h3>
-            <div className="flex flex-wrap gap-1.5">
+            <h3 className="mb-2 text-sm font-semibold text-slate-300 lg:text-base">快捷分值</h3>
+            <div className="flex flex-wrap items-center gap-1.5 lg:gap-2">
               {quick.map((q) => (
                 <button
                   key={q}
                   onClick={() => setDelta(q)}
-                  className={`h-10 w-14 rounded-lg border text-sm font-bold transition active:scale-95 ${
+                  className={`h-10 w-14 rounded-lg border text-sm font-bold transition active:scale-95 lg:h-12 lg:w-16 lg:text-base ${
                     delta === q
                       ? isDeduct
                         ? "border-rose-400 bg-rose-500/25 text-rose-200"
@@ -196,7 +212,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
               ))}
               <input
                 type="number"
-                className="cs-input h-10 w-24 py-0 text-center"
+                className="cs-input h-10 w-24 py-0 text-center lg:h-12 lg:w-28 lg:text-base"
                 placeholder="自定义"
                 value={delta === null ? "" : delta}
                 onChange={(e) => setDelta(e.target.value === "" ? null : Number(e.target.value))}
@@ -205,15 +221,21 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-slate-300">理由</h3>
-            <input className="cs-input" placeholder="例:课堂积极回答问题" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={50} />
+            <h3 className="mb-2 text-sm font-semibold text-slate-300 lg:text-base">理由</h3>
+            <input
+              className="cs-input h-11 text-base lg:h-12"
+              placeholder="例:课堂积极回答问题"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              maxLength={50}
+            />
           </div>
 
           <motion.button
             whileTap={{ scale: 0.97 }}
             disabled={busy}
             onClick={submit}
-            className={`cs-btn w-full py-3 text-base font-bold text-white ${
+            className={`cs-btn w-full py-3 text-base font-bold text-white lg:py-4 lg:text-lg ${
               isDeduct ? "bg-rose-500 hover:bg-rose-400" : "bg-emerald-500 hover:bg-emerald-400"
             }`}
           >

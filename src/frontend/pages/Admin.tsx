@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import type { AppSettings, Operation, Student } from "@shared/types";
 import { api } from "../lib/api";
 import { SettingsProvider, useSettingsApply } from "../lib/settings";
+import ThemeToggle from "../components/ThemeToggle";
 import ScoreTab from "../components/tabs/ScoreTab";
 import StudentsTab from "../components/tabs/StudentsTab";
 import LotteryTab from "../components/tabs/LotteryTab";
@@ -77,7 +78,7 @@ function AdminInner() {
 
       {/* 顶栏 */}
       <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 lg:max-w-6xl 2xl:max-w-7xl">
           <h1 className="text-base font-bold text-slate-100">ClassScore 管理台</h1>
           <div className="ml-auto flex items-center gap-2">
             <AnimatePresence>
@@ -97,6 +98,7 @@ function AdminInner() {
                 </motion.button>
               )}
             </AnimatePresence>
+            <ThemeToggle />
             <button onClick={logout} className="cs-btn border border-slate-700 text-slate-400 hover:border-rose-500/50 hover:text-rose-300">
               <LogOut className="h-4 w-4" /> 退出
             </button>
@@ -104,7 +106,7 @@ function AdminInner() {
         </div>
 
         {/* 标签页 */}
-        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4">
+        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 lg:max-w-6xl 2xl:max-w-7xl">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -122,7 +124,7 @@ function AdminInner() {
         </nav>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pt-6">
+      <main className="mx-auto max-w-5xl px-4 pt-6 lg:max-w-6xl 2xl:max-w-7xl">
         {tab === "score" && <ScoreTab students={students} onDone={refreshAll} />}
         {tab === "students" && <StudentsTab students={students} onDone={refreshAll} />}
         {tab === "lottery" && <LotteryTab students={students} onDone={refreshAll} />}

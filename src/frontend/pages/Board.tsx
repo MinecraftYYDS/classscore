@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import type { BoardData } from "@shared/types";
 import { AnimatedNumber, scoreColor } from "../components/ScoreBits";
 import StudentDetailModal from "../components/StudentDetailModal";
+import ThemeToggle from "../components/ThemeToggle";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
@@ -58,6 +59,7 @@ export default function Board() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Link
               to="/tv"
               className="cs-btn border border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-300"

@@ -15,16 +15,18 @@ interface AuthState {
   pwHash: string | null;
   totpSecret: string | null;
   totpConfirmed: boolean;
+  loginEnabled: boolean;
   fails: number;
   lockedUntil: number;
   lastStep: number;
 }
 
 async function loadAuthState(db: D1Database): Promise<AuthState> {
-  const [pwHash, totpSecret, totpConfirmed, fails, lockedUntil, lastStep] = await Promise.all([
+  const [pwHash, totpSecret, totpConfirmed, loginEnabled, fails, lockedUntil, lastStep] = await Promise.all([
     getSetting<string>(db, "auth_pw_hash"),
     getSetting<string>(db, "totp_secret"),
     getSetting<boolean>(db, "totp_confirmed"),
+    getSetting<boolean>(db, "totp_login_enabled"),
     getSetting<number>(db, "auth_fails"),
     getSetting<number>(db, "auth_locked_until"),
     getSetting<number>(db, "auth_last_step"),
@@ -33,6 +35,7 @@ async function loadAuthState(db: D1Database): Promise<AuthState> {
     pwHash: pwHash ?? null,
     totpSecret: totpSecret ?? null,
     totpConfirmed: totpConfirmed ?? false,
+    loginEnabled: loginEnabled ?? true,
     fails: fails ?? 0,
     lockedUntil: lockedUntil ?? 0,
     lastStep: lastStep ?? 0,
@@ -54,7 +57,10 @@ export const authRoutes = new Hono<App>();
 authRoutes.get("/status", async (c) => {
   await seedDefaults(c.env.DB);
   const st = await loadAuthState(c.env.DB);
-  return c.json({ initialized: !!(st.pwHash && st.totpConfirmed) });
+  return c.json({
+    initialized: !!(st.pwHash && st.totpConfirmed),
+    twoFactorEnabled: !!(st.totpConfirmed && st.loginEnabled),
+  });
 });
 
 // 初始化:设置教师密码 + 生成 TOTP 密钥(返回 otpauth 链接,前端渲染二维码)
@@ -85,6 +91,7 @@ authRoutes.post("/init/confirm", async (c) => {
   const step = await verifyTotp(secret, code ?? "", { minStep: 0 });
   if (step === null) return c.json({ error: "验证码错误,请重试" }, 400);
   await setSetting(c.env.DB, "totp_confirmed", true);
+  await setSetting(c.env.DB, "totp_login_enabled", true);
   await setSetting(c.env.DB, "auth_last_step", step);
   sendWebhook(c, await getSettings(c.env.DB), "auth.init", "教师端完成 2FA 初始化", {});
   return c.json({ ok: true });
@@ -112,7 +119,7 @@ authRoutes.post("/login", async (c) => {
     return c.json({ error: lockedUntil ? "尝试次数过多,已锁定 10 分钟" : "密码或验证码错误" }, 401);
   }
 
-  if (st.totpConfirmed && st.totpSecret) {
+  if (st.totpConfirmed && st.totpSecret && st.loginEnabled) {
     const step = await verifyTotp(st.totpSecret, code ?? "", { minStep: st.lastStep });
     if (step === null) {
       const fails = st.fails + 1;
@@ -173,9 +180,31 @@ authRoutes.post("/totp/rebind/confirm", requireAuth, async (c) => {
   const step = await verifyTotp(secret, code ?? "", { minStep: 0 });
   if (step === null) return c.json({ error: "验证码错误,请重试" }, 400);
   await setSetting(c.env.DB, "totp_confirmed", true);
+  await setSetting(c.env.DB, "totp_login_enabled", true);
   await setSetting(c.env.DB, "auth_last_step", step);
   sendWebhook(c, await getSettings(c.env.DB), "auth.totp_rebound", "2FA 已重新绑定", {});
   return c.json({ ok: true });
+});
+
+// 2FA 登录开关(只有在已绑定过 2FA 后才能切换)
+authRoutes.get("/2fa", requireAuth, async (c) => {
+  const st = await loadAuthState(c.env.DB);
+  return c.json({ configured: st.totpConfirmed, enabled: st.totpConfirmed && st.loginEnabled });
+});
+
+authRoutes.post("/2fa", requireAuth, async (c) => {
+  const { enabled } = await c.req.json<{ enabled?: boolean }>();
+  const st = await loadAuthState(c.env.DB);
+  if (!st.totpConfirmed || !st.totpSecret) return c.json({ error: "请先完成 2FA 绑定" }, 400);
+  await setSetting(c.env.DB, "totp_login_enabled", !!enabled);
+  sendWebhook(
+    c,
+    await getSettings(c.env.DB),
+    "auth.2fa_toggle",
+    enabled ? "已开启登录动态码验证" : "已关闭登录动态码验证",
+    { enabled: !!enabled }
+  );
+  return c.json({ ok: true, enabled: !!enabled });
 });
 
 // 清除全部登录保护状态(忘记密码时使用):见 package.json 中 db:reset-auth 脚本

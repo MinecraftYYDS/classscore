@@ -37,11 +37,15 @@ export default function Login() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [twoFactor, setTwoFactor] = useState(true);
 
   useEffect(() => {
     api
-      .get<{ initialized: boolean }>("/api/auth/status")
-      .then((r) => setMode(r.initialized ? "login" : "init"))
+      .get<{ initialized: boolean; twoFactorEnabled: boolean }>("/api/auth/status")
+      .then((r) => {
+        setMode(r.initialized ? "login" : "init");
+        setTwoFactor(r.twoFactorEnabled);
+      })
       .catch(() => setError("无法连接服务器"));
   }, []);
 
@@ -117,7 +121,7 @@ export default function Login() {
             <p className="text-xs text-slate-500">
               {mode === "init" && "首次使用:设置教师密码"}
               {mode === "bind" && "用验证器 App 扫码绑定两步验证"}
-              {mode === "login" && "密码 + 动态验证码"}
+              {mode === "login" && (twoFactor ? "密码 + 动态验证码" : "请输入密码")}
               {mode === "loading" && "检查初始化状态…"}
             </p>
           </div>
@@ -169,13 +173,25 @@ export default function Login() {
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm text-slate-400">密码</label>
-              <input type="password" className="cs-input" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <input
+                type="password"
+                className="cs-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !twoFactor && doLogin()}
+              />
             </div>
-            <div>
-              <label className="mb-1 block text-sm text-slate-400">两步验证码(6 位)</label>
-              <input className="cs-input text-center text-2xl tracking-[0.5em]" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="000000" onKeyDown={(e) => e.key === "Enter" && doLogin()} />
-            </div>
-            <button className="cs-btn w-full bg-indigo-500 text-white hover:bg-indigo-400" disabled={busy || !code} onClick={doLogin}>
+            {twoFactor && (
+              <div>
+                <label className="mb-1 block text-sm text-slate-400">两步验证码(6 位)</label>
+                <input className="cs-input text-center text-2xl tracking-[0.5em]" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="000000" onKeyDown={(e) => e.key === "Enter" && doLogin()} />
+              </div>
+            )}
+            <button
+              className="cs-btn w-full bg-indigo-500 text-white hover:bg-indigo-400"
+              disabled={busy || !password || (twoFactor && code.length !== 6)}
+              onClick={doLogin}
+            >
               <ShieldCheck className="h-4 w-4" /> 登录
             </button>
           </div>
