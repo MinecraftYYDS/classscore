@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Undo2, LogOut, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import type { AppSettings, Operation, Student } from "@shared/types";
 import { api } from "../lib/api";
 import { SettingsProvider, useSettingsApply } from "../lib/settings";
@@ -14,13 +14,12 @@ import LogsTab from "../components/tabs/LogsTab";
 import SettingsTab from "../components/tabs/SettingsTab";
 
 const TABS = [
-  { key: "score", label: "加减分" },
-  { key: "students", label: "学生管理" },
-  { key: "lottery", label: "抽奖" },
-  { key: "logs", label: "操作日志" },
-  { key: "settings", label: "系统设置" },
+  { key: "score", label: "加减分", path: "/admin" },
+  { key: "students", label: "学生管理", path: "/admin/students" },
+  { key: "lottery", label: "抽奖", path: "/admin/lottery" },
+  { key: "logs", label: "操作日志", path: "/admin/logs" },
+  { key: "settings", label: "系统设置", path: "/admin/settings" },
 ] as const;
-type TabKey = (typeof TABS)[number]["key"];
 
 interface AdminState {
   students: Student[];
@@ -30,7 +29,9 @@ interface AdminState {
 
 function AdminInner() {
   const nav = useNavigate();
-  const [tab, setTab] = useState<TabKey>("score");
+  const loc = useLocation();
+  const activePath = loc.pathname.replace(/\/+$/, "") || "/admin";
+  const isActive = (path: string) => (path === "/admin" ? activePath === "/admin" : activePath.startsWith(path));
   const [students, setStudents] = useState<Student[]>([]);
   const [lastOp, setLastOp] = useState<Operation | null>(null);
   const [undoing, setUndoing] = useState(false);
@@ -107,29 +108,35 @@ function AdminInner() {
 
         {/* 标签页 */}
         <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 lg:max-w-6xl 2xl:max-w-7xl">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`relative shrink-0 px-4 py-2.5 text-sm font-medium transition ${
-                tab === t.key ? "text-indigo-300" : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              {t.label}
-              {tab === t.key && (
-                <motion.div layoutId="tab-underline" className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-indigo-400" />
-              )}
-            </button>
-          ))}
+          {TABS.map((t) => {
+            const active = isActive(t.path);
+            return (
+              <Link
+                key={t.key}
+                to={t.path}
+                className={`relative shrink-0 px-4 py-2.5 text-sm font-medium transition ${
+                  active ? "text-indigo-300" : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {t.label}
+                {active && (
+                  <motion.div layoutId="tab-underline" className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-indigo-400" />
+                )}
+              </Link>
+            );
+          })}
         </nav>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 pt-6 lg:max-w-6xl 2xl:max-w-7xl">
-        {tab === "score" && <ScoreTab students={students} onDone={refreshAll} />}
-        {tab === "students" && <StudentsTab students={students} onDone={refreshAll} />}
-        {tab === "lottery" && <LotteryTab students={students} onDone={refreshAll} />}
-        {tab === "logs" && <LogsTab />}
-        {tab === "settings" && <SettingsTab onDone={refreshAll} />}
+        <Routes>
+          <Route index element={<ScoreTab students={students} onDone={refreshAll} />} />
+          <Route path="students" element={<StudentsTab students={students} onDone={refreshAll} />} />
+          <Route path="lottery" element={<LotteryTab students={students} onDone={refreshAll} />} />
+          <Route path="logs" element={<LogsTab />} />
+          <Route path="settings" element={<SettingsTab onDone={refreshAll} />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Routes>
       </main>
     </div>
   );

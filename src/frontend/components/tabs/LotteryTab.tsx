@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Gift, Plus, Trash2, Save, Dices, UserCheck, Users } from "lucide-react";
+import { Gift, Plus, Trash2, Save, Dices, Search, ArrowLeft } from "lucide-react";
 import { toast } from "react-hot-toast";
 import type { LotteryLog, Prize, Student } from "@shared/types";
 import { api } from "../../lib/api";
@@ -20,8 +20,9 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [draft, setDraft] = useState<Prize[]>([]);
   const [logs, setLogs] = useState<LotteryLog[]>([]);
-  const [mode, setMode] = useState<"random" | "pick">("random");
+  const [step, setStep] = useState<"pick" | "spin">("pick");
   const [pickedId, setPickedId] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
   const [spinning, setSpinning] = useState(false);
   const [targetId, setTargetId] = useState<number | null>(null);
   const [result, setResult] = useState<DrawResult | null>(null);
@@ -48,14 +49,30 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
   const picked = students.find((s) => s.id === pickedId) ?? null;
   const dirty = JSON.stringify(prizes) !== JSON.stringify(draft);
 
+  const filtered = useMemo(
+    () => students.filter((s) => !query || s.name.includes(query) || s.student_no.includes(query)),
+    [students, query]
+  );
+
+  const pickStudent = (s: Student) => {
+    if (s.score < settings.lottery_min_score) {
+      toast.error(`${s.name} 当前 ${s.score} 分,低于抽奖门槛 ${settings.lottery_min_score} 分`);
+      return;
+    }
+    setPickedId(s.id);
+    setStep("spin");
+  };
+
+  const resetPick = () => {
+    setPickedId(null);
+    setStep("pick");
+  };
+
   const spin = async () => {
-    if (mode === "pick" && !pickedId) return toast.error("请选择一名学生");
-    if (mode === "random" && !eligible.length) return toast.error("没有满足条件的学生");
+    if (!pickedId) return toast.error("请先选择学生");
     setBusy(true);
     try {
-      const r = await api.post<DrawResult>("/api/lottery/draw", {
-        studentId: mode === "pick" ? pickedId : undefined,
-      });
+      const r = await api.post<DrawResult>("/api/lottery/draw", { studentId: pickedId });
       setPending(r);
       setTargetId(r.prize.id);
       setSpinning(true);
@@ -75,6 +92,11 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
     }
     setTargetId(null);
     await Promise.all([onDone(), loadPrizes(), loadLogs()]);
+  };
+
+  const closeResult = () => {
+    setResult(null);
+    resetPick();
   };
 
   const updateDraft = (idx: number, patch: Partial<Prize>) =>
@@ -106,63 +128,82 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
       <Confetti fire={fire} />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* 转盘 */}
-        <div className="cs-card flex flex-col items-center gap-4 p-5">
-          <Wheel
-            prizes={draft}
-            spinning={spinning}
-            disabled={busy}
-            targetPrizeId={targetId}
-            onSpinRequest={spin}
-            onFinish={onFinish}
-          />
-
-          <div className="flex w-full max-w-xs gap-1 rounded-xl bg-slate-900 p-1">
-            {(["random", "pick"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition ${
-                  mode === m ? "text-indigo-200" : "text-slate-500"
-                }`}
-              >
-                {mode === m && (
-                  <motion.div layoutId="lottery-mode" className="absolute inset-0 -z-10 rounded-lg bg-indigo-500/20 ring-1 ring-indigo-500/40" />
+        {/* 左:先选学生,再转盘 */}
+        <div className="cs-card p-5">
+          {step === "pick" ? (
+            <div className="flex flex-col">
+              <div className="mb-3 flex items-center gap-2">
+                <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-300">
+                  <Dices className="h-4 w-4 text-indigo-400" /> 第一步:选择学生
+                </h3>
+                <span className="ml-auto text-xs text-slate-500">可抽 {eligible.length} 人</span>
+              </div>
+              <div className="relative mb-3">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <input
+                  className="cs-input pl-8"
+                  placeholder="搜索姓名/学号"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              <div className="grid max-h-[52vh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+                {filtered.map((s) => {
+                  const ok = s.score >= settings.lottery_min_score;
+                  return (
+                    <button
+                      key={s.id}
+                      disabled={!ok}
+                      onClick={() => pickStudent(s)}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm transition ${
+                        ok
+                          ? "border-slate-800 bg-slate-900 text-slate-200 hover:border-indigo-500/60"
+                          : "border-slate-900 bg-slate-900/40 text-slate-600"
+                      }`}
+                    >
+                      <span className="truncate">{s.name}</span>
+                      <span className={`ml-auto shrink-0 text-xs ${ok ? "text-slate-500" : "text-rose-400/70"}`}>
+                        {s.score}
+                      </span>
+                    </button>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <p className="col-span-full py-8 text-center text-sm text-slate-500">没有匹配的学生</p>
                 )}
-                {m === "random" ? <Users className="h-3.5 w-3.5" /> : <UserCheck className="h-3.5 w-3.5" />}
-                {m === "random" ? "全班随机" : "指定学生"}
-              </button>
-            ))}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex w-full items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">为以下学生抽奖</p>
+                  <p className="truncate text-lg font-bold text-slate-100">{picked?.name ?? "—"}</p>
+                </div>
+                <span className="ml-auto shrink-0 text-xl font-black tabular-nums text-slate-300">{picked?.score}</span>
+                <button onClick={resetPick} className="cs-btn shrink-0 border border-slate-700 text-slate-300">
+                  <ArrowLeft className="h-4 w-4" /> 重选
+                </button>
+              </div>
 
-          {mode === "pick" && (
-            <select className="cs-input max-w-xs" value={pickedId ?? ""} onChange={(e) => setPickedId(e.target.value ? Number(e.target.value) : null)}>
-              <option value="">选择学生…</option>
-              {students.map((s) => (
-                <option key={s.id} value={s.id} disabled={s.score < settings.lottery_min_score}>
-                  {s.name}({s.score} 分){s.score < settings.lottery_min_score ? " · 分数不足" : ""}
-                </option>
-              ))}
-            </select>
+              <Wheel
+                prizes={draft}
+                spinning={spinning}
+                disabled={busy}
+                targetPrizeId={targetId}
+                onSpinRequest={spin}
+                onFinish={onFinish}
+              />
+
+              <div className="text-center text-xs text-slate-500">
+                每次消耗 <b className="text-amber-300">{settings.lottery_cost}</b> 分 · 低于{" "}
+                <b className="text-amber-300">{settings.lottery_min_score}</b> 分不可抽奖
+              </div>
+            </div>
           )}
-
-          <div className="text-center text-xs text-slate-500">
-            每次消耗 <b className="text-amber-300">{settings.lottery_cost}</b> 分 · 低于{" "}
-            <b className="text-amber-300">{settings.lottery_min_score}</b> 分不可抽奖 · 可抽学生{" "}
-            <b className="text-emerald-300">{eligible.length}</b> 人
-          </div>
-
-          <button
-            onClick={spin}
-            disabled={busy || spinning || (mode === "pick" ? !picked : !eligible.length)}
-            className="cs-btn w-full max-w-xs bg-gradient-to-r from-indigo-500 to-fuchsia-500 py-3 text-base font-bold text-white"
-          >
-            <Dices className="h-5 w-5" />
-            {spinning ? "抽奖中…" : mode === "pick" && picked ? `让 ${picked.name} 抽一次` : "开始抽奖"}
-          </button>
         </div>
 
-        {/* 奖池编辑 */}
+        {/* 右:奖池编辑 */}
         <div className="cs-card p-5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-300">
@@ -265,7 +306,7 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4"
-            onClick={() => setResult(null)}
+            onClick={closeResult}
           >
             <motion.div
               initial={{ scale: 0.7, y: 30 }}
@@ -282,8 +323,8 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
                 消耗 <b className="text-amber-300">{result.actualCost}</b> 分 · 剩余{" "}
                 <b className="text-emerald-300">{result.newScore}</b> 分
               </p>
-              <button onClick={() => setResult(null)} className="cs-btn mt-6 w-full bg-indigo-500 text-white hover:bg-indigo-400">
-                好的
+              <button onClick={closeResult} className="cs-btn mt-6 w-full bg-indigo-500 text-white hover:bg-indigo-400">
+                <Dices className="h-4 w-4" /> 好的,选择下一位
               </button>
             </motion.div>
           </motion.div>

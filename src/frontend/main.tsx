@@ -15,7 +15,7 @@ createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route path="/" element={<Board />} />
           <Route path="/tv" element={<BigScreen />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/*" element={<Admin />} />
           <Route path="/admin/login" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
