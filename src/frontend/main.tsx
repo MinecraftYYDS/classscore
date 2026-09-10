@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 import Board from "./pages/Board";
+import BigScreen from "./pages/BigScreen";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 
@@ -11,6 +12,7 @@ createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Board />} />
+        <Route path="/tv" element={<BigScreen />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/admin/login" element={<Login />} />
         <Route path="*" element={<Navigate to="/" replace />} />
