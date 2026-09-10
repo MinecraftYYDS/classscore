@@ -105,10 +105,10 @@ export default function StudentDetailModal({
                 <div key={l.id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-800/40">
                   <span
                     className={`w-12 shrink-0 text-right font-bold tabular-nums ${
-                      l.delta >= 0 ? "text-emerald-400" : "text-rose-400"
+                      l.result != null ? "text-indigo-300" : l.delta >= 0 ? "text-emerald-400" : "text-rose-400"
                     }`}
                   >
-                    {l.delta > 0 ? `+${l.delta}` : l.delta}
+                    {l.result != null ? `=${l.result}` : l.delta > 0 ? `+${l.delta}` : l.delta}
                   </span>
                   <span className="flex-1 truncate text-sm text-slate-300">{l.reason || "—"}</span>
                   <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-500">

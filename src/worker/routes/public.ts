@@ -31,7 +31,7 @@ publicRoutes.get("/student/:id", async (c) => {
       .bind(sid)
       .first(),
     c.env.DB.prepare(
-      "SELECT id, delta, reason, source, created_at FROM score_logs WHERE student_id = ?1 ORDER BY id DESC LIMIT 100"
+      "SELECT id, delta, reason, source, result, created_at FROM score_logs WHERE student_id = ?1 ORDER BY id DESC LIMIT 100"
     )
       .bind(sid)
       .all(),

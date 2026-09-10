@@ -12,6 +12,7 @@ export interface ScoreLog {
   delta: number;
   reason: string;
   source: "teacher" | "lottery" | "undo" | "system";
+  result?: number | null;
   created_at: number;
 }
 

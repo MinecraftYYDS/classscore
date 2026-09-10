@@ -163,7 +163,7 @@ studentRoutes.get("/:id/detail", async (c) => {
   if (!student) return c.json({ error: "学生不存在" }, 404);
   const scores = await c.env.DB
     .prepare(
-      "SELECT id, delta, reason, source, created_at FROM score_logs WHERE student_id = ?1 ORDER BY id DESC LIMIT 100"
+      "SELECT id, delta, reason, source, result, created_at FROM score_logs WHERE student_id = ?1 ORDER BY id DESC LIMIT 100"
     )
     .bind(sid)
     .all();
@@ -192,7 +192,7 @@ studentRoutes.post("/reset-scores", async (c) => {
   stmts.push(
     c.env.DB
       .prepare(
-        "INSERT INTO score_logs (student_id, delta, reason, source, operation_id, created_at) SELECT id, ?1 - score, '重置分数', 'system', ?2, ?3 FROM students"
+        "INSERT INTO score_logs (student_id, delta, reason, source, operation_id, created_at, result) SELECT id, ?1 - score, '重置分数', 'system', ?2, ?3, ?1 FROM students"
       )
       .bind(settings.initial_score, opId, Date.now())
   );
@@ -212,7 +212,7 @@ studentRoutes.get("/logs/all", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 100), 500);
   const offset = Math.max(Number(c.req.query("offset") ?? 0), 0);
   const { results } = await c.env.DB.prepare(
-    `SELECT l.id, l.student_id, s.name AS student_name, l.delta, l.reason, l.source, l.created_at
+    `SELECT l.id, l.student_id, s.name AS student_name, l.delta, l.reason, l.source, l.result, l.created_at
      FROM score_logs l LEFT JOIN students s ON s.id = l.student_id
      ORDER BY l.id DESC LIMIT ?1 OFFSET ?2`
   )

@@ -118,9 +118,9 @@ scoreRoutes.post("/set", async (c) => {
     c.env.DB.prepare("UPDATE students SET score = ?1 WHERE id = ?2").bind(target, sid),
     c.env.DB
       .prepare(
-        "INSERT INTO score_logs (student_id, delta, reason, source, operation_id, created_at) VALUES (?1, ?2, ?3, 'teacher', ?4, ?5)"
+        "INSERT INTO score_logs (student_id, delta, reason, source, operation_id, created_at, result) VALUES (?1, ?2, ?3, 'teacher', ?4, ?5, ?6)"
       )
-      .bind(sid, target - row.score, reason?.trim() || "手动设置", opId, Date.now()),
+      .bind(sid, target - row.score, reason?.trim() || "手动设置", opId, Date.now(), target),
   ]);
 
   sendWebhook(c, 

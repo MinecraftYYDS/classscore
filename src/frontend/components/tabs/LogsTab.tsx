@@ -94,8 +94,12 @@ export default function LogsTab() {
           {logs.length === 0 && <p className="p-8 text-center text-sm text-slate-500">暂无分数记录</p>}
           {logs.map((l) => (
             <div key={l.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className={`w-14 shrink-0 text-right font-bold tabular-nums ${l.delta >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                {l.delta > 0 ? `+${l.delta}` : l.delta}
+              <span
+                className={`w-14 shrink-0 text-right font-bold tabular-nums ${
+                  l.result != null ? "text-indigo-300" : l.delta >= 0 ? "text-emerald-400" : "text-rose-400"
+                }`}
+              >
+                {l.result != null ? `=${l.result}` : l.delta > 0 ? `+${l.delta}` : l.delta}
               </span>
               <span className="w-20 shrink-0 truncate text-sm text-slate-300">{l.student_name ?? "已删除"}</span>
               <span className="flex-1 truncate text-sm text-slate-500">{l.reason}</span>
