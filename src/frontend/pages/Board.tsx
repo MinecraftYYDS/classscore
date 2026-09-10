@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trophy, RefreshCw, Settings2 } from "lucide-react";
+import { Trophy, RefreshCw, Settings2, Monitor, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { BoardData } from "@shared/types";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
+const NAME_COLLATOR = new Intl.Collator("zh-Hans-CN", { sensitivity: "base" });
 
 function AnimatedNumber({ value }: { value: number }) {
   const [display, setDisplay] = useState(value);
@@ -38,6 +39,7 @@ export default function Board() {
   const [data, setData] = useState<BoardData | null>(null);
   const [error, setError] = useState("");
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [bigScreen, setBigScreen] = useState(false);
 
   const load = async () => {
     try {
@@ -59,10 +61,91 @@ export default function Board() {
     return () => clearInterval(t);
   }, []);
 
-  const sorted = [...(data?.students ?? [])].sort((a, b) => b.score - a.score || a.id - b.id);
+  const sorted = useMemo(
+    () => [...(data?.students ?? [])].sort((a, b) => b.score - a.score || a.id - b.id),
+    [data]
+  );
+
+  const byName = useMemo(
+    () => [...(data?.students ?? [])].sort((a, b) => NAME_COLLATOR.compare(a.name, b.name) || a.id - b.id),
+    [data]
+  );
+
+  const dims = useMemo(() => {
+    const n = Math.max(byName.length, 1);
+    const cols = Math.max(1, Math.ceil(Math.sqrt((n * 16) / 9)));
+    return { cols, rows: Math.ceil(n / cols) };
+  }, [byName.length]);
+
+  useEffect(() => {
+    if (!bigScreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setBigScreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bigScreen]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950/60 px-4 py-6 sm:px-8">
+      {/* 大屏模式:一屏展示全部学生,按姓名首字母排序 */}
+      <AnimatePresence>
+        {bigScreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950/60 p-5 sm:p-8"
+          >
+            <header className="mb-4 flex items-center gap-3">
+              <Trophy className="h-7 w-7 shrink-0 text-amber-400 sm:h-8 sm:w-8" />
+              <h1 className="truncate text-xl font-bold text-slate-50 sm:text-3xl">
+                {data?.className ?? "班级量化评分"}
+              </h1>
+              <span className="ml-auto shrink-0 text-xs text-slate-500">
+                {updatedAt ? `更新于 ${updatedAt.toLocaleTimeString("zh-CN", { hour12: false })}` : ""}
+              </span>
+              <button
+                onClick={() => setBigScreen(false)}
+                className="cs-btn shrink-0 border border-slate-700 text-slate-300 hover:border-rose-500/60 hover:text-rose-300"
+              >
+                <X className="h-4 w-4" /> 退出
+              </button>
+            </header>
+
+            <div
+              className="grid min-h-0 flex-1 gap-2 sm:gap-3"
+              style={{
+                gridTemplateColumns: `repeat(${dims.cols}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${dims.rows}, minmax(0, 1fr))`,
+              }}
+            >
+              {byName.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex min-h-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 px-2 py-1 text-center sm:rounded-2xl"
+                >
+                  <span className="w-full truncate text-[clamp(0.7rem,1.8vw,1.6rem)] font-semibold text-slate-100">
+                    {s.name}
+                  </span>
+                  <span
+                    className={`text-[clamp(1.1rem,3vw,3.5rem)] font-black leading-tight tabular-nums ${scoreColor(
+                      s.score,
+                      data?.lottery.minScore ?? 3
+                    )}`}
+                  >
+                    <AnimatedNumber value={s.score} />
+                  </span>
+                </div>
+              ))}
+              {data && byName.length === 0 && (
+                <p className="col-span-full self-center text-center text-slate-500">还没有学生,请在教师端添加</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="mx-auto max-w-3xl">
         <header className="mb-6 flex items-center justify-between">
           <div>
@@ -79,14 +162,24 @@ export default function Board() {
               · 每 15 秒自动刷新
             </p>
           </div>
-          <Link
-            to="/admin"
-            className="cs-btn border border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-300"
-            title="教师端"
-          >
-            <Settings2 className="h-4 w-4" />
-            教师端
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBigScreen(true)}
+              className="cs-btn border border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-300"
+              title="大屏模式"
+            >
+              <Monitor className="h-4 w-4" />
+              大屏
+            </button>
+            <Link
+              to="/admin"
+              className="cs-btn border border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-300"
+              title="教师端"
+            >
+              <Settings2 className="h-4 w-4" />
+              教师端
+            </Link>
+          </div>
         </header>
 
         {error && (

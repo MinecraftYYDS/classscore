@@ -1,9 +1,14 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
-import { getSettings, DEFAULT_SETTINGS } from "../lib/settings";
+import { getSettings, seedDefaults, DEFAULT_SETTINGS } from "../lib/settings";
 import { recordOperation, undoLastOperation } from "../lib/oplog";
 import { sendWebhook, testWebhook } from "../lib/webhook";
+import { verifyPassword } from "../lib/auth";
+import { verifyTotp } from "../lib/totp";
+import { getSetting, setSetting } from "../lib/db";
 import type { AppSettings } from "../../shared/types";
+
+const RESET_CONFIRM_PHRASE = "重置整个系统";
 
 type App = { Bindings: Env };
 
@@ -253,4 +258,47 @@ systemRoutes.post("/import", async (c) => {
     operationId: opId,
   });
   return c.json({ ok: true, students: body.students.length });
+});
+
+// 全部重置:清空全部业务数据并恢复默认设置(需密码 + 动态验证码双重认证)
+systemRoutes.post("/reset-all", async (c) => {
+  const { password, code, confirm } = await c.req.json<{
+    password?: string;
+    code?: string;
+    confirm?: string;
+  }>();
+
+  if (confirm !== RESET_CONFIRM_PHRASE) return c.json({ error: "确认文字不正确" }, 400);
+
+  const db = c.env.DB;
+  const [pwHash, totpSecret, totpConfirmed, lastStep] = await Promise.all([
+    getSetting<string>(db, "auth_pw_hash"),
+    getSetting<string>(db, "totp_secret"),
+    getSetting<boolean>(db, "totp_confirmed"),
+    getSetting<number>(db, "auth_last_step"),
+  ]);
+
+  if (!pwHash || !totpSecret || !totpConfirmed)
+    return c.json({ error: "账号安全状态异常,无法执行重置" }, 400);
+
+  if (!(await verifyPassword(password ?? "", pwHash))) return c.json({ error: "密码错误" }, 401);
+
+  const step = await verifyTotp(totpSecret, code ?? "", { minStep: lastStep ?? 0 });
+  if (step === null) return c.json({ error: "动态验证码错误" }, 401);
+  await setSetting(db, "auth_last_step", step);
+
+  await db.batch([
+    db.prepare("DELETE FROM students"),
+    db.prepare("DELETE FROM score_logs"),
+    db.prepare("DELETE FROM lottery_logs"),
+    db.prepare("DELETE FROM prizes"),
+    db.prepare("DELETE FROM operations"),
+    db.prepare(
+      "DELETE FROM settings WHERE key NOT IN ('auth_pw_hash','totp_secret','totp_confirmed','auth_last_step','session_secret')"
+    ),
+  ]);
+  await seedDefaults(db);
+
+  sendWebhook(c, await getSettings(db), "system.reset_all", "已重置整个系统(清空全部数据并恢复默认设置)", {});
+  return c.json({ ok: true });
 });

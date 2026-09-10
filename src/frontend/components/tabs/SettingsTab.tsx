@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Save, Webhook, Plus, Trash2, Send, KeyRound, ShieldCheck, SlidersHorizontal, ListPlus, Database, RefreshCw } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Save, Webhook, Plus, Trash2, Send, KeyRound, ShieldCheck, SlidersHorizontal, ListPlus, Database, RefreshCw, AlertTriangle, X } from "lucide-react";
 import { toast } from "react-hot-toast";
 import type { AppSettings, PresetReason, WebhookEventGroup } from "@shared/types";
 import { api } from "../../lib/api";
@@ -71,10 +71,148 @@ function PresetEditor({
   );
 }
 
+const RESET_PHRASE = "重置整个系统";
+
+function ResetAllDialog({ onClose, onDone }: { onClose: () => void; onDone: () => Promise<void> }) {
+  const [step, setStep] = useState(1);
+  const [phrase, setPhrase] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await api.post("/api/system/reset-all", { password, code, confirm: phrase });
+      toast.success("系统已全部重置");
+      onClose();
+      await onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "重置失败");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="cs-card w-full max-w-md p-6"
+      >
+        <div className="mb-4 flex items-center gap-2 text-rose-300">
+          <AlertTriangle className="h-5 w-5" />
+          <h3 className="text-base font-bold">全部重置整个系统</h3>
+          <button onClick={onClose} className="ml-auto text-slate-500 hover:text-slate-300">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mb-5 flex items-center gap-2 text-[11px] text-slate-500">
+          {[1, 2, 3].map((s) => (
+            <div key={s} className="flex flex-1 items-center gap-2">
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                  step >= s ? "bg-rose-500/20 text-rose-300" : "bg-slate-800 text-slate-500"
+                }`}
+              >
+                {s}
+              </span>
+              {s < 3 && <span className={`h-px flex-1 ${step > s ? "bg-rose-500/40" : "bg-slate-800"}`} />}
+            </div>
+          ))}
+        </div>
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-300">此操作将永久删除以下全部数据,且无法撤销:</p>
+            <ul className="list-inside list-disc space-y-1 rounded-lg bg-slate-900/70 p-3 text-xs text-slate-400">
+              <li>所有学生及其分数</li>
+              <li>全部加减分记录与操作日志</li>
+              <li>全部抽奖记录与奖池</li>
+              <li>所有系统设置(恢复为默认值)</li>
+            </ul>
+            <p className="text-xs text-slate-500">登录密码与 2FA 绑定会被保留。</p>
+            <button onClick={() => setStep(2)} className="cs-btn w-full bg-rose-500 text-white hover:bg-rose-400">
+              我已了解,继续(第 1 次确认)
+            </button>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-300">
+              请输入 <b className="text-rose-300">{RESET_PHRASE}</b> 以继续:
+            </p>
+            <input
+              className="cs-input"
+              value={phrase}
+              onChange={(e) => setPhrase(e.target.value)}
+              placeholder={RESET_PHRASE}
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setStep(1)} className="cs-btn flex-1 border border-slate-700 text-slate-400">
+                返回
+              </button>
+              <button
+                onClick={() => setStep(3)}
+                disabled={phrase.trim() !== RESET_PHRASE}
+                className="cs-btn flex-1 bg-rose-500 text-white hover:bg-rose-400"
+              >
+                继续(第 2 次确认)
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-300">最后一步:请输入登录密码和验证器当前动态码。</p>
+            <input
+              type="password"
+              className="cs-input"
+              placeholder="登录密码"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <input
+              className="cs-input text-center tracking-[0.4em]"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="6 位动态验证码"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setStep(2)} className="cs-btn flex-1 border border-slate-700 text-slate-400">
+                返回
+              </button>
+              <button
+                onClick={submit}
+                disabled={busy || !password || code.length !== 6}
+                className="cs-btn flex-1 bg-rose-600 text-white hover:bg-rose-500"
+              >
+                确认重置全部数据(第 3 次确认)
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function SettingsTab({ onDone }: { onDone: () => Promise<void> }) {
   const settings = useSettings();
   const [form, setForm] = useState<AppSettings | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -261,7 +399,20 @@ export default function SettingsTab({ onDone }: { onDone: () => Promise<void> })
         <p className="text-xs text-slate-500">
           数据备份 / 恢复请到「学生管理」页操作(支持 CSV 导出、JSON 全量备份与恢复)。重置全班分数也在该页。
         </p>
+        <div className="mt-4 border-t border-rose-500/20 pt-4">
+          <p className="mb-2 text-xs text-rose-400/80">危险操作</p>
+          <button
+            onClick={() => setResetOpen(true)}
+            className="cs-btn border border-rose-500/40 text-rose-300 hover:bg-rose-500/10"
+          >
+            <AlertTriangle className="h-4 w-4" /> 全部重置(清空全部数据)
+          </button>
+        </div>
       </Section>
+
+      <AnimatePresence>
+        {resetOpen && <ResetAllDialog onClose={() => setResetOpen(false)} onDone={onDone} />}
+      </AnimatePresence>
     </div>
   );
 }

@@ -123,21 +123,11 @@ function AdminInner() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 pt-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={tab}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
-          >
-            {tab === "score" && <ScoreTab students={students} onDone={refreshAll} />}
-            {tab === "students" && <StudentsTab students={students} onDone={refreshAll} />}
-            {tab === "lottery" && <LotteryTab students={students} onDone={refreshAll} />}
-            {tab === "logs" && <LogsTab />}
-            {tab === "settings" && <SettingsTab onDone={refreshAll} />}
-          </motion.div>
-        </AnimatePresence>
+        {tab === "score" && <ScoreTab students={students} onDone={refreshAll} />}
+        {tab === "students" && <StudentsTab students={students} onDone={refreshAll} />}
+        {tab === "lottery" && <LotteryTab students={students} onDone={refreshAll} />}
+        {tab === "logs" && <LogsTab />}
+        {tab === "settings" && <SettingsTab onDone={refreshAll} />}
       </main>
     </div>
   );
