@@ -50,7 +50,7 @@ function PresetEditor({
         {items.map((it, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <input
-              className="cs-input flex-1 py-1.5"
+              className="cs-input min-w-0 flex-1 py-1.5"
               placeholder="理由"
               value={it.label}
               onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}

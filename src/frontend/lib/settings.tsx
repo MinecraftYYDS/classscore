@@ -5,9 +5,10 @@ import type { AppSettings } from "@shared/types";
 interface SettingsCtxValue {
   settings: AppSettings | null;
   reload: () => Promise<void>;
+  apply: (next: AppSettings) => void;
 }
 
-const SettingsCtx = createContext<SettingsCtxValue>({ settings: null, reload: async () => {} });
+const SettingsCtx = createContext<SettingsCtxValue>({ settings: null, reload: async () => {}, apply: () => {} });
 
 const FALLBACK: AppSettings = {
   class_name: "加载中…",
@@ -36,11 +37,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const apply = useCallback((next: AppSettings) => setSettings(next), []);
+
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  return <SettingsCtx.Provider value={{ settings, reload }}>{children}</SettingsCtx.Provider>;
+  return <SettingsCtx.Provider value={{ settings, reload, apply }}>{children}</SettingsCtx.Provider>;
 }
 
 export function useSettings(): AppSettings {
@@ -49,4 +52,8 @@ export function useSettings(): AppSettings {
 
 export function useSettingsReload(): () => Promise<void> {
   return useContext(SettingsCtx).reload;
+}
+
+export function useSettingsApply(): (next: AppSettings) => void {
+  return useContext(SettingsCtx).apply;
 }

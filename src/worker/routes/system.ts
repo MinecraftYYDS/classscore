@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
-import { getSettings, seedDefaults, DEFAULT_SETTINGS } from "../lib/settings";
+import { getSettings, DEFAULT_SETTINGS } from "../lib/settings";
 import { recordOperation, undoLastOperation } from "../lib/oplog";
 import { sendWebhook, testWebhook } from "../lib/webhook";
 import type { AppSettings } from "../../shared/types";
@@ -15,8 +15,22 @@ systemRoutes.use("*", async (c, next) => {
 });
 
 systemRoutes.get("/settings", async (c) => {
-  await seedDefaults(c.env.DB);
   return c.json(await getSettings(c.env.DB));
+});
+
+// 管理台一次拉取所需全部状态(学生 + 设置 + 最近操作),避免多次请求
+systemRoutes.get("/state", async (c) => {
+  const db = c.env.DB;
+  const [students, settings, lastOperation] = await Promise.all([
+    db.prepare("SELECT id, name, student_no, score FROM students ORDER BY id ASC").all(),
+    getSettings(db),
+    db
+      .prepare(
+        "SELECT id, type, summary, undone, created_at FROM operations WHERE undone = 0 AND type <> 'undo' ORDER BY id DESC LIMIT 1"
+      )
+      .first(),
+  ]);
+  return c.json({ students: students.results, settings, lastOperation: lastOperation ?? null });
 });
 
 // 保存设置(记录每项变更的旧值,支持撤销)

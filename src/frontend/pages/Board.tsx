@@ -106,10 +106,10 @@ export default function Board() {
             {[1, 0, 2].map((rank) => {
               const s = sorted[rank];
               if (!s) return <div key={rank} />;
-              const heights = ["h-28", "h-36", "h-24"];
+              const heights = ["h-36", "h-28", "h-24"];
               const colors = [
-                "from-slate-500/40 to-slate-700/40 border-slate-400/40",
                 "from-amber-500/40 to-amber-700/40 border-amber-400/50",
+                "from-slate-500/40 to-slate-700/40 border-slate-400/40",
                 "from-orange-600/40 to-orange-800/40 border-orange-400/40",
               ];
               return (

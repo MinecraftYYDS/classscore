@@ -184,50 +184,54 @@ export default function LotteryTab({ students, onDone }: { students: Student[]; 
 
           <div className="space-y-2">
             {draft.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 p-2">
-                <input
-                  type="color"
-                  value={p.color}
-                  onChange={(e) => updateDraft(i, { color: e.target.value })}
-                  className="h-8 w-8 shrink-0 cursor-pointer rounded border-0 bg-transparent"
-                  title="颜色"
-                />
-                <input
-                  className="cs-input flex-1 py-1.5"
-                  value={p.name}
-                  onChange={(e) => updateDraft(i, { name: e.target.value })}
-                  placeholder="奖项名称"
-                />
-                <label className="flex shrink-0 items-center gap-1 text-[10px] text-slate-500" title="权重(越大越容易中)">
-                  权重
+              <div key={i} className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
+                <div className="flex items-center gap-2">
                   <input
-                    type="number"
-                    min={1}
-                    className="cs-input w-14 px-1 py-1.5 text-center"
-                    value={p.weight}
-                    onChange={(e) => updateDraft(i, { weight: Number(e.target.value) })}
+                    type="color"
+                    value={p.color}
+                    onChange={(e) => updateDraft(i, { color: e.target.value })}
+                    className="h-8 w-8 shrink-0 cursor-pointer rounded border-0 bg-transparent"
+                    title="颜色"
                   />
-                </label>
-                <label className="flex shrink-0 items-center gap-1 text-[10px] text-slate-500" title="库存,留空为不限">
-                  库存
                   <input
-                    type="number"
-                    min={0}
-                    placeholder="∞"
-                    className="cs-input w-14 px-1 py-1.5 text-center"
-                    value={p.stock ?? ""}
-                    onChange={(e) => updateDraft(i, { stock: e.target.value === "" ? null : Number(e.target.value) })}
+                    className="cs-input min-w-0 flex-1 py-1.5"
+                    value={p.name}
+                    onChange={(e) => updateDraft(i, { name: e.target.value })}
+                    placeholder="奖项名称"
                   />
-                </label>
-                <button
-                  onClick={() => updateDraft(i, { enabled: p.enabled ? 0 : 1 })}
-                  className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${p.enabled ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-400"}`}
-                >
-                  {p.enabled ? "启用" : "停用"}
-                </button>
-                <button onClick={() => setDraft((d) => d.filter((_, x) => x !== i))} className="shrink-0 text-slate-500 hover:text-rose-400">
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  <button onClick={() => setDraft((d) => d.filter((_, x) => x !== i))} className="shrink-0 p-1 text-slate-500 hover:text-rose-400">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 pl-10">
+                  <label className="flex items-center gap-1 text-[11px] text-slate-500" title="权重(越大越容易中)">
+                    权重
+                    <input
+                      type="number"
+                      min={1}
+                      className="cs-input w-16 px-1 py-1 text-center"
+                      value={p.weight}
+                      onChange={(e) => updateDraft(i, { weight: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="flex items-center gap-1 text-[11px] text-slate-500" title="库存,留空为不限">
+                    库存
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="∞"
+                      className="cs-input w-16 px-1 py-1 text-center"
+                      value={p.stock ?? ""}
+                      onChange={(e) => updateDraft(i, { stock: e.target.value === "" ? null : Number(e.target.value) })}
+                    />
+                  </label>
+                  <button
+                    onClick={() => updateDraft(i, { enabled: p.enabled ? 0 : 1 })}
+                    className={`ml-auto rounded-full px-3 py-1 text-[11px] font-medium ${p.enabled ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-400"}`}
+                  >
+                    {p.enabled ? "启用" : "停用"}
+                  </button>
+                </div>
               </div>
             ))}
             {draft.length === 0 && <p className="py-6 text-center text-xs text-slate-500">奖池为空,点击「添加」创建奖项</p>}

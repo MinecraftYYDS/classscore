@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
-import { getSettings, seedDefaults } from "../lib/settings";
+import { getSettings } from "../lib/settings";
 import { recordOperation } from "../lib/oplog";
 import { sendWebhook } from "../lib/webhook";
 import type { StudentRow } from "./score";
@@ -209,7 +209,6 @@ studentRoutes.post("/reset-scores", async (c) => {
 
 // 操作日志(带学生名)
 studentRoutes.get("/logs/all", async (c) => {
-  await seedDefaults(c.env.DB);
   const limit = Math.min(Number(c.req.query("limit") ?? 100), 500);
   const offset = Math.max(Number(c.req.query("offset") ?? 0), 0);
   const { results } = await c.env.DB.prepare(

@@ -8,6 +8,7 @@ import { useSettings } from "../../lib/settings";
 
 const QUICK_ADD = [1, 2, 3, 5];
 const QUICK_DEDUCT = [-1, -2, -3, -5];
+const NAME_COLLATOR = new Intl.Collator("zh-Hans-CN", { sensitivity: "base" });
 
 export default function ScoreTab({ students, onDone }: { students: Student[]; onDone: () => Promise<void> }) {
   const settings = useSettings();
@@ -23,7 +24,10 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
   const isDeduct = mode === "deduct";
 
   const filtered = useMemo(
-    () => students.filter((s) => !query || s.name.includes(query) || s.student_no.includes(query)),
+    () =>
+      students
+        .filter((s) => !query || s.name.includes(query) || s.student_no.includes(query))
+        .sort((a, b) => NAME_COLLATOR.compare(a.name, b.name) || a.id - b.id),
     [students, query]
   );
 

@@ -3,9 +3,9 @@ import { toast, Toaster } from "react-hot-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Undo2, LogOut, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { Operation, Student } from "@shared/types";
+import type { AppSettings, Operation, Student } from "@shared/types";
 import { api } from "../lib/api";
-import { SettingsProvider, useSettingsReload } from "../lib/settings";
+import { SettingsProvider, useSettingsApply } from "../lib/settings";
 import ScoreTab from "../components/tabs/ScoreTab";
 import StudentsTab from "../components/tabs/StudentsTab";
 import LotteryTab from "../components/tabs/LotteryTab";
@@ -21,37 +21,33 @@ const TABS = [
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
+interface AdminState {
+  students: Student[];
+  settings: AppSettings;
+  lastOperation: Operation | null;
+}
+
 function AdminInner() {
   const nav = useNavigate();
   const [tab, setTab] = useState<TabKey>("score");
   const [students, setStudents] = useState<Student[]>([]);
   const [lastOp, setLastOp] = useState<Operation | null>(null);
   const [undoing, setUndoing] = useState(false);
-  const reloadSettings = useSettingsReload();
+  const applySettings = useSettingsApply();
 
-  const loadStudents = useCallback(async () => {
+  const refreshAll = useCallback(async () => {
     try {
-      const list = await api.get<Student[]>("/api/students");
-      setStudents(list);
+      const s = await api.get<AdminState>("/api/system/state");
+      setStudents(s.students);
+      setLastOp(s.lastOperation);
+      applySettings(s.settings);
     } catch (e) {
       if ((e as Error & { status?: number }).status === 401) nav("/admin/login", { replace: true });
     }
-  }, [nav]);
-
-  const loadLastOp = useCallback(async () => {
-    try {
-      const ops = await api.get<Operation[]>("/api/system/operations?limit=1");
-      setLastOp(ops[0] ?? null);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const refreshAll = useCallback(async () => {
-    await Promise.all([loadStudents(), loadLastOp(), reloadSettings()]);
-  }, [loadStudents, loadLastOp, reloadSettings]);
+  }, [nav, applySettings]);
 
   useEffect(() => {
+    void fetch("/api/bootstrap").catch(() => undefined);
     void refreshAll();
   }, [refreshAll]);
 
