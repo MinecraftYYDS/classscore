@@ -3,7 +3,7 @@ import { toast, Toaster } from "react-hot-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Undo2, LogOut, Loader2 } from "lucide-react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import type { AppSettings, Operation, Student } from "@shared/types";
+import type { AppSettings, Operation, Student, StudentGroup } from "@shared/types";
 import { api } from "../lib/api";
 import { SettingsProvider, useSettingsApply } from "../lib/settings";
 import ThemeToggle from "../components/ThemeToggle";
@@ -23,6 +23,7 @@ const TABS = [
 
 interface AdminState {
   students: Student[];
+  groups: StudentGroup[];
   settings: AppSettings;
   lastOperation: Operation | null;
 }
@@ -33,6 +34,7 @@ function AdminInner() {
   const activePath = loc.pathname.replace(/\/+$/, "") || "/admin";
   const isActive = (path: string) => (path === "/admin" ? activePath === "/admin" : activePath.startsWith(path));
   const [students, setStudents] = useState<Student[]>([]);
+  const [groups, setGroups] = useState<StudentGroup[]>([]);
   const [lastOp, setLastOp] = useState<Operation | null>(null);
   const [undoing, setUndoing] = useState(false);
   const applySettings = useSettingsApply();
@@ -41,6 +43,7 @@ function AdminInner() {
     try {
       const s = await api.get<AdminState>("/api/system/state");
       setStudents(s.students);
+      setGroups(s.groups);
       setLastOp(s.lastOperation);
       applySettings(s.settings);
     } catch (e) {
@@ -130,8 +133,8 @@ function AdminInner() {
 
       <main className="mx-auto max-w-5xl px-4 pt-6 lg:max-w-6xl 2xl:max-w-7xl">
         <Routes>
-          <Route index element={<ScoreTab students={students} onDone={refreshAll} />} />
-          <Route path="students" element={<StudentsTab students={students} onDone={refreshAll} />} />
+          <Route index element={<ScoreTab students={students} groups={groups} onDone={refreshAll} />} />
+          <Route path="students" element={<StudentsTab students={students} groups={groups} onDone={refreshAll} />} />
           <Route path="lottery" element={<LotteryTab students={students} onDone={refreshAll} />} />
           <Route path="logs" element={<LogsTab />} />
           <Route path="settings" element={<SettingsTab onDone={refreshAll} />} />

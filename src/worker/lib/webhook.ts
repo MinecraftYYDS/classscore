@@ -29,7 +29,7 @@ export interface WebhookPayload {
 }
 
 export function groupOf(event: string): WebhookEventGroup {
-  if (event.startsWith("student.")) return "student";
+  if (event.startsWith("student.") || event.startsWith("group.")) return "student";
   if (event.startsWith("score.") || event.startsWith("reset.")) return "score";
   if (event.startsWith("lottery.")) return "lottery";
   if (event.startsWith("undo.")) return "undo";

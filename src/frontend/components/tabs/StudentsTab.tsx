@@ -1,18 +1,22 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { UserPlus, Trash2, Download, Pencil, RotateCcw, Upload, Check, X } from "lucide-react";
+import { UserPlus, Trash2, Download, Pencil, RotateCcw, Upload, Check, X, Users } from "lucide-react";
 import { toast } from "react-hot-toast";
-import type { Student } from "@shared/types";
+import { useSearchParams } from "react-router-dom";
+import type { Student, StudentGroup } from "@shared/types";
 import { api } from "../../lib/api";
 import { useSettings } from "../../lib/settings";
+import GroupManager from "../GroupManager";
 
-export default function StudentsTab({ students, onDone }: { students: Student[]; onDone: () => Promise<void> }) {
+export default function StudentsTab({ students, groups, onDone }: { students: Student[]; groups: StudentGroup[]; onDone: () => Promise<void> }) {
   const settings = useSettings();
+  const [searchParams] = useSearchParams();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [addOpen, setAddOpen] = useState(false);
   const [namesText, setNamesText] = useState("");
   const [editing, setEditing] = useState<{ id: number; name: string; no: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(() => searchParams.get("groups") === "1");
 
   const toggle = (id: number) =>
     setSelected((prev) => {
@@ -94,11 +98,11 @@ export default function StudentsTab({ students, onDone }: { students: Student[];
   };
 
   const importBackup = async (file: File) => {
-    if (!confirm("导入备份将覆盖当前全部数据(可撤销),确定?")) return;
+    if (!confirm("导入备份将覆盖当前全部数据和分组（旧版备份不含分组，将清空分组；可撤销），确定？")) return;
     setBusy(true);
     try {
       const data = JSON.parse(await file.text());
-      const r = await api.post<{ students: unknown[] }>("/api/system/import", data);
+      const r = await api.post<{ students: number }>("/api/system/import", data);
       toast.success(`已导入 ${r.students} 名学生的备份`);
       await onDone();
     } catch (e) {
@@ -135,6 +139,9 @@ export default function StudentsTab({ students, onDone }: { students: Student[];
         <button onClick={() => setAddOpen((v) => !v)} className="cs-btn bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30">
           <UserPlus className="h-4 w-4" /> 批量加入
         </button>
+        <button onClick={() => setGroupsOpen((v) => !v)} aria-expanded={groupsOpen} className="cs-btn bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30">
+          <Users className="h-4 w-4" /> 分组管理 ({groups.length})
+        </button>
         <button onClick={deleteSelected} disabled={!selected.size} className="cs-btn bg-rose-500/15 text-rose-300 hover:bg-rose-500/25">
           <Trash2 className="h-4 w-4" /> 删除选中 ({selected.size})
         </button>
@@ -150,6 +157,8 @@ export default function StudentsTab({ students, onDone }: { students: Student[];
           </label>
         </div>
       </div>
+
+      {groupsOpen && <GroupManager students={students} groups={groups} onDone={onDone} />}
 
       {/* 批量加入面板 */}
       <AnimatePresence>

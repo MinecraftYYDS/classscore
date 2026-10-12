@@ -22,6 +22,7 @@ const { authRoutes } = await import("./routes/auth");
 const { publicRoutes } = await import("./routes/public");
 const { scoreRoutes } = await import("./routes/score");
 const { studentRoutes } = await import("./routes/students");
+const { groupRoutes } = await import("./routes/groups");
 const { lotteryRoutes } = await import("./routes/lottery");
 const { systemRoutes } = await import("./routes/system");
 
@@ -29,6 +30,7 @@ app.route("/api/auth", authRoutes);
 app.route("/api/public", publicRoutes);
 app.route("/api/scores", scoreRoutes);
 app.route("/api/students", studentRoutes);
+app.route("/api/groups", groupRoutes);
 app.route("/api/lottery", lotteryRoutes);
 app.route("/api/system", systemRoutes);
 

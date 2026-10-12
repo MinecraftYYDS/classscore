@@ -5,6 +5,12 @@ export interface Student {
   score: number;
 }
 
+export interface StudentGroup {
+  id: number;
+  name: string;
+  studentIds: number[];
+}
+
 export interface ScoreLog {
   id: number;
   student_id: number;
@@ -22,6 +28,9 @@ export type OperationType =
   | "student.add"
   | "student.delete"
   | "student.update"
+  | "group.create"
+  | "group.update"
+  | "group.delete"
   | "prize.batch"
   | "lottery.draw"
   | "settings.update"
@@ -107,6 +116,9 @@ export const OPERATION_LABELS: Record<OperationType, string> = {
   "student.add": "新增学生",
   "student.delete": "删除学生",
   "student.update": "修改学生",
+  "group.create": "创建分组",
+  "group.update": "修改分组",
+  "group.delete": "删除分组",
   "prize.batch": "编辑奖池",
   "lottery.draw": "抽奖",
   "settings.update": "修改设置",

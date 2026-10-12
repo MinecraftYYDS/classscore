@@ -88,10 +88,15 @@ studentRoutes.post("/batch-delete", async (c) => {
     .bind(...clean)
     .all();
   const logs = await c.env.DB.prepare(
-    `SELECT id, student_id, delta, reason, source, operation_id, created_at FROM score_logs WHERE student_id IN (${ph})`
+    `SELECT * FROM score_logs WHERE student_id IN (${ph})`
   )
     .bind(...clean)
     .all();
+
+  const [groupMembers, lotteryLogs] = await Promise.all([
+    c.env.DB.prepare(`SELECT group_id, student_id FROM student_group_members WHERE student_id IN (${ph})`).bind(...clean).all(),
+    c.env.DB.prepare(`SELECT * FROM lottery_logs WHERE student_id IN (${ph})`).bind(...clean).all(),
+  ]);
 
   await c.env.DB.batch([
     c.env.DB.prepare(`DELETE FROM score_logs WHERE student_id IN (${ph})`).bind(...clean),
@@ -102,6 +107,8 @@ studentRoutes.post("/batch-delete", async (c) => {
   const opId = await recordOperation(c.env.DB, "student.delete", `删除学生 ${students.results.length} 人`, {
     students: students.results,
     logs: logs.results,
+    groupMembers: groupMembers.results,
+    lotteryLogs: lotteryLogs.results,
   });
 
   const names = (students.results as { name: string }[]).map((s) => s.name).join("、");
@@ -224,20 +231,24 @@ studentRoutes.get("/logs/all", async (c) => {
 
 // 数据备份导出
 studentRoutes.get("/export", async (c) => {
-  const [students, scoreLogs, prizes, lotteryLogs, ops] = await Promise.all([
+  const [students, scoreLogs, prizes, lotteryLogs, ops, groups, groupMembers] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM students").all(),
     c.env.DB.prepare("SELECT * FROM score_logs").all(),
     c.env.DB.prepare("SELECT * FROM prizes").all(),
     c.env.DB.prepare("SELECT * FROM lottery_logs").all(),
     c.env.DB.prepare("SELECT * FROM operations").all(),
+    c.env.DB.prepare("SELECT * FROM student_groups").all(),
+    c.env.DB.prepare("SELECT * FROM student_group_members").all(),
   ]);
   return c.json({
-    version: 1,
+    version: 2,
     exportedAt: Date.now(),
     students: students.results,
     scoreLogs: scoreLogs.results,
     prizes: prizes.results,
     lotteryLogs: lotteryLogs.results,
     operations: ops.results,
+    groups: groups.results,
+    groupMembers: groupMembers.results,
   });
 });

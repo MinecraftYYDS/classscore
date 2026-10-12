@@ -1,3 +1,5 @@
+import { restoreGroups, restoreGroupMembers, type GroupRow, type GroupMemberRow } from "./groups";
+
 export interface AppliedDelta {
   studentId: number;
   name: string;
@@ -57,12 +59,12 @@ function restoreStudents(db: D1Database, students: unknown[]): D1PreparedStateme
 
 function restoreScoreLogs(db: D1Database, logs: unknown[]): D1PreparedStatement[] {
   return logs.map((l) => {
-    const lg = l as { id: number; student_id: number; delta: number; reason: string; source: string; operation_id: number | null; created_at: number };
+    const lg = l as { id: number; student_id: number; delta: number; reason: string; source: string; operation_id: number | null; created_at: number; result?: number | null };
     return db
       .prepare(
-        "INSERT INTO score_logs (id, student_id, delta, reason, source, operation_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+        "INSERT INTO score_logs (id, student_id, delta, reason, source, operation_id, created_at, result) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
       )
-      .bind(lg.id, lg.student_id, lg.delta, lg.reason, lg.source, lg.operation_id, lg.created_at);
+      .bind(lg.id, lg.student_id, lg.delta, lg.reason, lg.source, lg.operation_id, lg.created_at, lg.result ?? null);
   });
 }
 
@@ -156,6 +158,8 @@ export async function undoLastOperation(
       for (const st of restoreStudents(db, (payload.students ?? []) as unknown[]))
         stmts.push(st);
       for (const lg of restoreScoreLogs(db, (payload.logs ?? []) as unknown[])) stmts.push(lg);
+      stmts.push(...restoreGroupMembers(db, (payload.groupMembers ?? []) as GroupMemberRow[]));
+      stmts.push(...restoreLotteryLogs(db, (payload.lotteryLogs ?? []) as unknown[]));
       break;
     }
     case "student.update": {
@@ -165,6 +169,21 @@ export async function undoLastOperation(
           .prepare("UPDATE students SET name = ?1, student_no = ?2 WHERE id = ?3")
           .bind(before.name, before.student_no, payload.studentId as number)
       );
+      break;
+    }
+    case "group.create": {
+      stmts.push(db.prepare("DELETE FROM student_groups WHERE id = ?1").bind(payload.groupId));
+      break;
+    }
+    case "group.update": {
+      const before = payload.before as GroupRow;
+      stmts.push(db.prepare("UPDATE student_groups SET name = ?1 WHERE id = ?2").bind(before.name, before.id));
+      stmts.push(db.prepare("DELETE FROM student_group_members WHERE group_id = ?1").bind(before.id));
+      stmts.push(...restoreGroupMembers(db, (payload.members ?? []) as GroupMemberRow[]));
+      break;
+    }
+    case "group.delete": {
+      stmts.push(...restoreGroups(db, [payload.before as GroupRow], (payload.members ?? []) as GroupMemberRow[]));
       break;
     }
     case "prize.batch": {
@@ -216,12 +235,15 @@ export async function undoLastOperation(
       break;
     }
     case "data.import": {
+      stmts.push(db.prepare("DELETE FROM student_group_members"));
+      stmts.push(db.prepare("DELETE FROM student_groups"));
       stmts.push(db.prepare("DELETE FROM students"));
       stmts.push(db.prepare("DELETE FROM prizes"));
       stmts.push(db.prepare("DELETE FROM score_logs"));
       stmts.push(db.prepare("DELETE FROM lottery_logs"));
       for (const st of restoreStudents(db, (payload.students ?? []) as unknown[]))
         stmts.push(st);
+      stmts.push(...restoreGroups(db, (payload.groups ?? []) as GroupRow[], (payload.groupMembers ?? []) as GroupMemberRow[]));
       for (const pz of restorePrizes(db, (payload.prizes ?? []) as unknown[])) stmts.push(pz);
       for (const lg of restoreScoreLogs(db, (payload.scoreLogs ?? []) as unknown[]))
         stmts.push(lg);

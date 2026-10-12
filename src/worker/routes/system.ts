@@ -7,6 +7,7 @@ import { verifyPassword } from "../lib/auth";
 import { verifyTotp } from "../lib/totp";
 import { getSetting, setSetting } from "../lib/db";
 import type { AppSettings } from "../../shared/types";
+import { getGroups, parseGroupBackup, restoreGroups } from "../lib/groups";
 
 const RESET_CONFIRM_PHRASE = "重置整个系统";
 
@@ -26,7 +27,7 @@ systemRoutes.get("/settings", async (c) => {
 // 管理台一次拉取所需全部状态(学生 + 设置 + 最近操作),避免多次请求
 systemRoutes.get("/state", async (c) => {
   const db = c.env.DB;
-  const [students, settings, lastOperation] = await Promise.all([
+  const [students, settings, lastOperation, groups] = await Promise.all([
     db.prepare("SELECT id, name, student_no, score FROM students ORDER BY id ASC").all(),
     getSettings(db),
     db
@@ -34,8 +35,9 @@ systemRoutes.get("/state", async (c) => {
         "SELECT id, type, summary, undone, created_at FROM operations WHERE undone = 0 AND type <> 'undo' ORDER BY id DESC LIMIT 1"
       )
       .first(),
+    getGroups(db),
   ]);
-  return c.json({ students: students.results, settings, lastOperation: lastOperation ?? null });
+  return c.json({ students: students.results, groups, settings, lastOperation: lastOperation ?? null });
 });
 
 // 保存设置(记录每项变更的旧值,支持撤销)
@@ -160,16 +162,26 @@ systemRoutes.post("/import", async (c) => {
     prizes?: unknown[];
     scoreLogs?: unknown[];
     lotteryLogs?: unknown[];
+    groups?: unknown[];
+    groupMembers?: unknown[];
   }>();
   if (!Array.isArray(body.students) || !body.students.length)
     return c.json({ error: "备份文件无学生数据" }, 400);
 
   const db = c.env.DB;
-  const [students, prizes, scoreLogs, lotteryLogs] = await Promise.all([
+  let importedGroups;
+  try {
+    importedGroups = parseGroupBackup(body, new Set((body.students as { id: unknown }[]).map((s) => Number(s?.id))));
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : "备份分组数据不合法" }, 400);
+  }
+  const [students, prizes, scoreLogs, lotteryLogs, groups, groupMembers] = await Promise.all([
     db.prepare("SELECT * FROM students").all(),
     db.prepare("SELECT * FROM prizes").all(),
     db.prepare("SELECT * FROM score_logs").all(),
     db.prepare("SELECT * FROM lottery_logs").all(),
+    db.prepare("SELECT * FROM student_groups").all(),
+    db.prepare("SELECT * FROM student_group_members").all(),
   ]);
 
   const opId = await recordOperation(db, "data.import", "导入备份数据", {
@@ -177,9 +189,13 @@ systemRoutes.post("/import", async (c) => {
     prizes: prizes.results,
     scoreLogs: scoreLogs.results,
     lotteryLogs: lotteryLogs.results,
+    groups: groups.results,
+    groupMembers: groupMembers.results,
   });
 
   const stmts: D1PreparedStatement[] = [
+    db.prepare("DELETE FROM student_group_members"),
+    db.prepare("DELETE FROM student_groups"),
     db.prepare("DELETE FROM lottery_logs"),
     db.prepare("DELETE FROM score_logs"),
     db.prepare("DELETE FROM prizes"),
@@ -194,6 +210,7 @@ systemRoutes.post("/import", async (c) => {
         .bind(Number(s.id), String(s.name ?? "").slice(0, 40), String(s.student_no ?? ""), Math.max(0, Math.trunc(Number(s.score ?? 0))), Number(s.created_at) || Date.now())
     );
   }
+  stmts.push(...restoreGroups(db, importedGroups.groups, importedGroups.groupMembers));
   if (Array.isArray(body.prizes)) {
     for (const p of body.prizes as Record<string, unknown>[]) {
       stmts.push(
@@ -218,7 +235,7 @@ systemRoutes.post("/import", async (c) => {
       stmts.push(
         db
           .prepare(
-            "INSERT OR IGNORE INTO score_logs (id, student_id, delta, reason, source, operation_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+            "INSERT OR IGNORE INTO score_logs (id, student_id, delta, reason, source, operation_id, created_at, result) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
           )
           .bind(
             Number(l.id),
@@ -227,7 +244,8 @@ systemRoutes.post("/import", async (c) => {
             String(l.reason ?? ""),
             String(l.source ?? "teacher"),
             l.operation_id === null ? null : Number(l.operation_id),
-            Number(l.created_at) || Date.now()
+            Number(l.created_at) || Date.now(),
+            l.result == null ? null : Math.trunc(Number(l.result))
           )
       );
     }
@@ -288,6 +306,8 @@ systemRoutes.post("/reset-all", async (c) => {
   await setSetting(db, "auth_last_step", step);
 
   await db.batch([
+    db.prepare("DELETE FROM student_group_members"),
+    db.prepare("DELETE FROM student_groups"),
     db.prepare("DELETE FROM students"),
     db.prepare("DELETE FROM score_logs"),
     db.prepare("DELETE FROM lottery_logs"),

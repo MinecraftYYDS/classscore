@@ -14,6 +14,8 @@
     "db:reset-auth": "wrangler d1 execute classscore --command \"DELETE FROM settings WHERE key IN ('auth_pw_hash','totp_secret','totp_confirmed','auth_fails','auth_locked_until','auth_last_step')\"",
     "db:reset-auth:remote": "wrangler d1 execute classscore --remote --command \"DELETE FROM settings WHERE key IN ('auth_pw_hash','totp_secret','totp_confirmed','auth_fails','auth_locked_until','auth_last_step')\"",
     "typecheck": "tsc --noEmit",
+    "test:groups": "npm run build && node scripts/test-groups.mjs",
+    "demo:setup": "node scripts/setup-local-demo.mjs",
     "preview": "npm run build && wrangler dev"
   },
   "devDependencies": {

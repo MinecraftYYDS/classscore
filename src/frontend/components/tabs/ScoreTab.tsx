@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Plus, Minus, Search, Sparkles, ArrowLeft } from "lucide-react";
+import { Check, Plus, Minus, Search, Sparkles, ArrowLeft, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
-import type { Student } from "@shared/types";
+import type { Student, StudentGroup } from "@shared/types";
 import { api } from "../../lib/api";
 import { useSettings } from "../../lib/settings";
 
@@ -23,7 +24,7 @@ function useIsDesktop() {
   return desktop;
 }
 
-export default function ScoreTab({ students, onDone }: { students: Student[]; onDone: () => Promise<void> }) {
+export default function ScoreTab({ students, groups, onDone }: { students: Student[]; groups: StudentGroup[]; onDone: () => Promise<void> }) {
   const settings = useSettings();
   const isDesktop = useIsDesktop();
   const [mode, setMode] = useState<"add" | "deduct">("add");
@@ -34,6 +35,16 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
   const [busy, setBusy] = useState(false);
   const [mobileStep, setMobileStep] = useState<"pick" | "action">("pick");
   const [multi, setMulti] = useState(false);
+  const [pickedGroupId, setPickedGroupId] = useState<number | null>(null);
+
+  // 学生删除或撤销后，不保留已失效的选择。
+  useEffect(() => {
+    const existing = new Set(students.map((s) => s.id));
+    setSelected((prev) => new Set([...prev].filter((id) => existing.has(id))));
+  }, [students]);
+
+  const pickedGroup = groups.find((g) => g.id === pickedGroupId);
+  const exactGroup = pickedGroup && pickedGroup.studentIds.length === selected.size && pickedGroup.studentIds.every((id) => selected.has(id));
 
   const presets = mode === "add" ? settings.preset_add : settings.preset_deduct;
   const quick = mode === "add" ? QUICK_ADD : QUICK_DEDUCT;
@@ -56,14 +67,20 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
     });
   };
 
-  const selectAllVisible = () => setSelected(new Set(filtered.map((s) => s.id)));
+  const selectAllVisible = () => {
+    setSelected(new Set(filtered.map((s) => s.id)));
+    setPickedGroupId(null);
+    setMulti(true);
+  };
   const clear = () => {
     setSelected(new Set());
     setMulti(false);
+    setPickedGroupId(null);
   };
 
   const pickOne = (id: number) => {
     setSelected(new Set([id]));
+    setPickedGroupId(null);
     setMobileStep("action");
   };
 
@@ -83,6 +100,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
   };
 
   const submit = async () => {
+    if (busy) return;
     if (!selected.size) return toast.error("请选择学生");
     if (!delta) return toast.error("请选择或输入分值");
     const d = isDeduct ? -Math.abs(delta) : Math.abs(delta);
@@ -97,6 +115,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
       if (r.clipped) toast.success(`已${mode === "add" ? "加" : "扣"}分(部分学生触及 0 分下限)`);
       else toast.success(`成功给 ${selected.size} 名学生${mode === "add" ? "加" : "扣"} ${Math.abs(delta)} 分`);
       setSelected(new Set());
+      setPickedGroupId(null);
       setDelta(null);
       setReason("");
       await onDone();
@@ -110,6 +129,38 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
       setBusy(false);
     }
   };
+
+  const groupPicker = (
+    <div className="mb-3 space-y-2">
+      <div className="flex items-center gap-2 text-xs text-slate-400 lg:text-sm">
+        <Users className="h-4 w-4 text-indigo-400" /> 选择分组
+        <Link to="/admin/students?groups=1" className="ml-auto text-indigo-400 hover:text-indigo-300">管理分组</Link>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {groups.map((g) => (
+          <button key={g.id} disabled={busy} aria-pressed={pickedGroupId === g.id && !!exactGroup}
+            onClick={() => {
+              const existing = new Set(students.map((s) => s.id));
+              const ids = g.studentIds.filter((id) => existing.has(id));
+              if (!ids.length) return toast.error("该分组暂无成员，请先在学生管理中添加");
+              setSelected(new Set(ids));
+              setPickedGroupId(g.id);
+              setQuery("");
+              setMulti(true);
+            }}
+            className={`max-w-full rounded-lg border px-3 py-2 text-xs transition lg:text-sm ${pickedGroupId === g.id && exactGroup ? "border-indigo-500/60 bg-indigo-500/15 text-indigo-200" : "border-slate-700 text-slate-400 hover:border-indigo-500/50"}`}>
+            <span className="break-all">{g.name}</span> <span className="text-slate-500">({g.studentIds.length} 人)</span>
+          </button>
+        ))}
+        {!groups.length && <span className="text-xs text-slate-500">还没有分组，可在「学生管理 → 分组管理」中提前设置。</span>}
+      </div>
+      {!!groups.length && <p className="text-[11px] text-slate-500">点击分组将替换当前选择，之后可手动增减学生。</p>}
+    </div>
+  );
+
+  const selectionSummary = pickedGroup && selected.size
+    ? `来自「${pickedGroup.name}」${exactGroup ? "" : "（已手动调整）"} · 共 ${selected.size} 人`
+    : `已选 ${selected.size} 人`;
 
   const modeToggle = (
     <div className="cs-card relative mx-auto grid w-full max-w-md grid-cols-2 p-1 lg:max-w-lg">
@@ -147,6 +198,10 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
 
   const actionPanel = (
     <div className="cs-card space-y-4 p-4 lg:sticky lg:top-24 lg:self-start lg:p-5">
+      <div className="rounded-lg bg-indigo-500/10 p-3 text-sm text-indigo-300">
+        <p className="break-all">{selectionSummary}</p>
+        <p className="mt-1 text-xs text-slate-400">{students.filter((s) => selected.has(s.id)).map((s) => s.name).join("、") || "请先选择学生或分组"}</p>
+      </div>
       <div>
         <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-slate-300 lg:text-base">
           <Sparkles className="h-4 w-4 text-indigo-400" /> 快捷理由
@@ -231,6 +286,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
         {modeToggle}
         <div className="grid gap-4 lg:grid-cols-12 lg:items-start lg:gap-5">
           <div className="cs-card p-4 lg:col-span-7 lg:p-5 xl:col-span-8">
+            {groupPicker}
             <div className="mb-3 flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -298,7 +354,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
         <button
           onClick={() => {
             setMobileStep("pick");
-            setMulti(false);
+            setMulti(selected.size > 1 || pickedGroupId !== null);
           }}
           className="cs-btn border border-slate-700 text-slate-300"
         >
@@ -313,6 +369,7 @@ export default function ScoreTab({ students, onDone }: { students: Student[]; on
   return (
     <div className="space-y-3">
       <div className="cs-card p-3">
+        {groupPicker}
         <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
           <span>
             已选 <span className="font-bold text-indigo-300">{selected.size}</span> / {filtered.length} 人
